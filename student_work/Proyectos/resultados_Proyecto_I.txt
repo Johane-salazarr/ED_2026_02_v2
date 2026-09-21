@@ -1,0 +1,154 @@
+EVALUACION - Data Stream Processor
+============================================================
+Estudiante : Johan Eduardo Salazar Ramirez
+Fecha      : 2026-09-21 20:26:51
+Python     : 3.13.15 (Linux)
+Evaluador  : v1.1
+Clase      : DataProcessor (modulo __main__)
+
+== Interfaz y restricciones ==
+
+[PASS ] Define add, process_next, undo, pending y current_value
+[PASS ] Se puede crear DataProcessor() sin argumentos
+[PASS ] __init__ crea una ArrayQueue, un ArrayStack y una list
+[PASS ] No sustituye Queue/Stack por deque u otra estructura
+[PASS ] ArrayQueue y ArrayStack son las del curso (no reimplementadas)
+
+   Interfaz y restricciones: 5/5 OK
+
+== Pruebas obligatorias (1-17) ==
+
+[PASS ] 1. pending() sobre un procesador vacio
+[PASS ] 2. Agregar un registro
+[PASS ] 3. Agregar varios registros
+[PASS ] 4. Procesamiento FIFO
+[PASS ] 5. Procesar un registro
+[PASS ] 6. Procesar varios registros
+[PASS ] 7. Actualizar una variable existente
+[PASS ] 8. Consultar el valor actual
+[PASS ] 9. Realizar un undo()
+[PASS ] 10. Varios undo() consecutivos
+[PASS ] 11. process_next() con la Queue vacia -> Empty
+[PASS ] 12. undo() con historial vacio -> Empty
+[PASS ] 13. Deshacer la creacion de un dato que no existia
+[PASS ] 14. Varios cambios sobre la misma variable
+[PASS ] 15. add() con formato incorrecto
+[PASS ] 16. add() con value no numerico
+[PASS ] 17. current_value() de un sensor/variable nunca procesado -> KeyError
+
+   Pruebas obligatorias (1-17): 17/17 OK
+
+== Casos borde adicionales ==
+
+[PASS ] undo de una creacion entre actualizaciones de otra variable
+[PASS ] Sensores y variables distintos no se mezclan
+[PASS ] Acepta int y float; sigue funcionando tras un Empty
+
+   Casos borde adicionales: 3/3 OK
+
+== Bonus: redo() (opcional) ==
+
+   No implementado (no aplica).
+
+== RESUMEN ==
+
+   Interfaz y restricciones          5/ 5 OK   0 fallo(s)
+   Pruebas obligatorias (1-17)      17/17 OK   0 fallo(s)
+   Casos borde adicionales           3/ 3 OK   0 fallo(s)
+
+   Total sin bonus: 25/25 OK
+
+== CODIGO DE LA CLASE ==
+
+class DataProcessor:
+
+    def __init__(self):
+        # Creación de ArrayQueue (Almacena los registros pendientes)
+        self.queue = ArrayQueue()  
+        # Creación de ArrayStack (Almacena los datos requeridos para revertir (Actualizaciones))
+        self.stack = ArrayStack()
+        # Creación de lista (sensor, variable, valor) - (Estado actual de los registros almacenados)
+        self.lista = []
+
+    # Función que verifica que el registro tenga 3 componentes 
+    # (sensor, variable, valor)
+    def add(self, record):
+        if len(record) != 3:
+            raise ValueError("El registro debe tener exactamente tres componentes")
+
+        sensor, variable, value = record
+
+    # Condicional con levantamiento de excepción que verifica que el valor sea de tipo númerico
+        if not isinstance(value, (int, float)):
+            raise ValueError("El valor del registro debe ser numérico")
+    # Agrega el registro cuando cumple con la condición a la cola sin procesarlo todavia
+        self.queue.enqueue(record)
+
+    # Función que retorna la cantidad de registros "pendientes de procesamiento en la cola"
+    def pending(self):
+        return len(self.queue)
+
+    # Función que retira de la cola el siguiente registro
+    # ArrayQueue garantiza que se procese la cola en orden (FIFO)
+    def process_next(self):
+        record = self.queue.dequeue()
+
+        sensor, variable, value = record
+    # Ciclo for para recorrer la lista "verificar la existencia de un dato igual (sensor, variable, valor)"
+        for i in range(len(self.lista)):
+            current_sensor, current_variable, current_value = self.lista[i]
+            # Si el sensor y la variable existen se trata de una actualización de un dato (sobre escritura)
+            if current_sensor == sensor and current_variable == variable:
+
+            # Antes de modificar el valor, se almacena en el Stack el valor anterior (registro) 
+            # para recuperlo mediante la función undo()
+                self.stack.push(
+                    (sensor, variable, current_value, True)
+                )
+            # Actualiza el valor del dato 
+                self.lista[i] = (sensor, variable, value)
+
+            # Retorna el registro procesasdo (Actualizado)
+                return record
+
+    # Si el sensor y la variable no existia anteriormente, se almacena en el Stack la información necesario 
+    # para eliminar el registro si posteriormente se hace undo()
+        self.stack.push(
+            (sensor, variable, None, False)
+        )
+    # Agregar el nuevo registro al estado actual
+        self.lista.append(record)
+    # Retorna el registro procesado 
+        return record
+
+    # Función que recorre el estado actual del dato buscando el sensor y la variable solicitados
+    def current_value(self, sensor, variable):
+        for record in self.lista:
+        # Si encuentra la combinación requerida retorna el valor actual
+            if record[0] == sensor and record[1] == variable:
+                return record[2]
+        # Sí no encuentra la combinación requerida sensor y variable levanta la excepción KeyError
+        raise KeyError((sensor, variable))
+
+    # Función que toma del Stack el "último cambio", sí el Stack esta vacío, ArrayStack levanta
+    # la excepción Empty
+    def undo(self):
+        sensor, variable, previous_value, existed = self.stack.pop()
+        # Recorre el estado actual (registro que corresponde al cambio que se quiere deshacer)
+        for i in range(len(self.lista)):
+            current_sensor, current_variable, current_value = self.lista[i]
+        # Verifica la existencia de sensor y variable en los registros
+        # Si el dato existia antes del último cambio (Actualización) se restaurara
+        # a su valor anterior
+            if current_sensor == sensor and current_variable == variable:
+                if existed:
+        # Si por su parte el dato fue creado por el último registro (procesamiento) se 
+        # elimina del estado actual
+                    self.lista[i] = (sensor, variable, previous_value)
+                else:
+                    self.lista.pop(i)
+                return
+
+== INTEGRIDAD ==
+SHA256 codigo de la clase : 5747c566ef5002a5a221eefbc67ef9215e434cd46b8ecad24a39f49134be32d7
+SHA256 de este informe    : 851c651c0451b76fe476541fd8698e573270a356292655151b0461eeedcd5ebe
